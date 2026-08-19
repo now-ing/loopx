@@ -62,7 +62,7 @@ def _register_agents(registry_path: Path) -> None:
 
 
 def _add_global_gate(registry_path: Path) -> dict:
-    return run_json_cli(
+    payload = run_json_cli(
         "todo",
         "add",
         "--goal-id",
@@ -76,6 +76,8 @@ def _add_global_gate(registry_path: Path) -> dict:
         "--global-gate",
         registry_path=registry_path,
     )
+    assert payload["schema_version"] == "loopx_todo_command_v0"
+    return payload
 
 
 def test_todo_update_can_narrow_global_gate_without_consuming_decision(

@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from loopx.cli_commands import registry_admin
+from loopx.cli import main
 
 GOAL_ID = "fresh-agent-race-fixture"
 
@@ -104,3 +105,59 @@ def test_require_new_registration_is_atomic_under_concurrency(
         "codex-existing",
         "codex-fresh",
     ]
+
+
+def test_agent_and_thread_mutation_cli_envelopes_are_versioned(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    runtime_root, _source_registry, _global_registry = _fixture(tmp_path)
+
+    assert main(
+        [
+            "--format",
+            "json",
+            "--runtime-root",
+            str(runtime_root),
+            "register-agent",
+            "--goal-id",
+            GOAL_ID,
+            "--agent-id",
+            "dsh-native-fixture",
+            "--require-new",
+            "--execute",
+        ]
+    ) == 0
+    registered = json.loads(capsys.readouterr().out)
+    assert registered["schema_version"] == "loopx_register_agent_v0"
+    assert registered["registration_readback"]["verified"] is True
+
+    for command, expected_status in (
+        ("bind-agent-thread", "bound"),
+        ("unbind-agent-thread", "missing"),
+    ):
+        assert main(
+            [
+                "--format",
+                "json",
+                "--runtime-root",
+                str(runtime_root),
+                command,
+                "--goal-id",
+                GOAL_ID,
+                "--thread-id",
+                "dsh-session-fixture",
+                "--host-surface",
+                "dsh-native",
+                "--agent-id",
+                "dsh-native-fixture",
+                "--execute",
+            ]
+        ) == 0
+        payload = json.loads(capsys.readouterr().out)
+        assert (
+            payload["schema_version"]
+            == "loopx_thread_agent_binding_command_v0"
+        )
+        assert payload["host_surface"] == "deepseek-harness-native"
+        assert payload["binding"]["status"] == expected_status

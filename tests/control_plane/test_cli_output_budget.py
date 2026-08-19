@@ -800,7 +800,9 @@ def test_quota_should_run_no_format_uses_machine_contract_json(
         markdown_exit_code, markdown_text = _invoke_cli(explicit_markdown_command)
 
     assert no_format_exit_code == 0, no_format_text
-    assert json.loads(no_format_text)["goal_id"] == GOAL_ID
+    no_format_payload = json.loads(no_format_text)
+    assert no_format_payload["schema_version"] == "loopx_quota_should_run_v0"
+    assert no_format_payload["goal_id"] == GOAL_ID
     assert markdown_exit_code == 0, markdown_text
     assert markdown_text.startswith("# LoopX Quota Should Run")
     assert not markdown_text.lstrip().startswith("{")
@@ -893,6 +895,7 @@ def test_malformed_todo_state_fails_closed_without_dropping_bounded_detail(
         measurement=status_measurement,
     )
     status_payload = json.loads(status_text)
+    assert status_payload["schema_version"] == "loopx_status_v0"
     error_codes = {
         row.get("code")
         for row in status_payload["contract"]["error_diagnostics"]

@@ -22,6 +22,7 @@ from loopx.control_plane.heartbeat.visible_goal import (
 )
 from loopx.heartbeat_prompt import (
     build_heartbeat_prompt,
+    build_heartbeat_prompt_error_payload,
     render_heartbeat_prompt_markdown,
 )
 
@@ -122,7 +123,17 @@ def test_visible_goal_policy_rejects_heartbeat_only_vocabulary() -> None:
 
 def test_public_facade_still_builds_and_renders_prompts() -> None:
     payload = build_heartbeat_prompt(goal_id="loopx-meta")
+    assert payload["schema_version"] == "loopx_heartbeat_prompt_v0"
     assert payload["ok"] is True
     assert payload["goal_id"] == "loopx-meta"
     assert payload["task_body"]
+    assert "pr_review_pre_quota_command" not in payload
+    assert "scheduler_execution_context" not in payload
     assert render_heartbeat_prompt_markdown(payload)
+
+    error = build_heartbeat_prompt_error_payload(
+        goal_id="loopx-meta",
+        error="fixture failure",
+    )
+    assert error["schema_version"] == "loopx_heartbeat_prompt_v0"
+    assert error["ok"] is False

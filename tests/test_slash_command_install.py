@@ -46,6 +46,7 @@ def test_host_materialization_installs_generated_loopx_entry_skill(
     }
     assert 'name: "loopx"' in skill_text
     assert "ark-managed-agent" in skill_text
+    assert "deepseek-harness-native" in skill_text
     assert "--slash-command-arguments" in skill_text
     assert "The CLI, not the model, owns parsing" in skill_text
     assert "Never split or recompose" in skill_text
@@ -115,6 +116,7 @@ def test_codex_install_upgrades_managed_loopx_facade(tmp_path: Path) -> None:
     assert "--host-surface <exact-current-host>" in skill_text
     assert "Identify the exact current host surface" in skill_text
     assert "ark-managed-agent" in skill_text
+    assert "deepseek-harness-native" in skill_text
     assert "`ordered_steps` and `goal_start_contract` as authoritative" in skill_text
     assert "use `codex-ide` for the IDE" not in skill_text
     assert "surface the exact pasteable gate" in skill_text

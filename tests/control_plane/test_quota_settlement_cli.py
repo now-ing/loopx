@@ -242,6 +242,7 @@ def test_standard_codex_app_settlement_is_receipted_and_idempotent(
     )
 
     assert guard_rc == 0, guard
+    assert guard["schema_version"] == "loopx_quota_should_run_v0"
     identity = guard["heartbeat_receipt"]["settlement_identity"]
     assert identity["todo_id"] == TODO_ID
     assert identity["effect_id"] == (f"{GOAL_ID}:{AGENT_ID}:{TODO_ID}:{TURN_ID}")
@@ -270,6 +271,7 @@ def test_standard_codex_app_settlement_is_receipted_and_idempotent(
     )
 
     assert complete_rc == 0, complete
+    assert complete["schema_version"] == "loopx_todo_command_v0"
     assert complete["settlement_result"]["ok"] is True
     assert [
         receipt["step_kind"] for receipt in complete["settlement_result"]["receipts"]

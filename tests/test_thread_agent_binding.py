@@ -70,6 +70,64 @@ def test_binding_lookup_is_fail_closed_without_thread_id() -> None:
     )
 
 
+def test_dsh_native_alias_shares_one_canonical_thread_binding(tmp_path: Path) -> None:
+    path = _registry(tmp_path, ["agent-a"])
+    result = bind_thread_agent_in_registry(
+        registry_path=path,
+        goal_id="goal",
+        host_surface="dsh-native",
+        thread_id="session-a",
+        agent_id="agent-a",
+        execute=True,
+    )
+
+    assert result["host_surface"] == "deepseek-harness-native"
+    goal = json.loads(path.read_text(encoding="utf-8"))["goals"][0]
+    canonical = resolve_thread_agent_binding(
+        goal,
+        host_surface="deepseek-harness-native",
+        thread_id="session-a",
+    )
+    shorthand = resolve_thread_agent_binding(
+        goal,
+        host_surface="dsh-native",
+        thread_id="session-a",
+    )
+    assert canonical["status"] == "bound"
+    assert canonical["agent_id"] == "agent-a"
+    assert shorthand == canonical
+
+
+def test_external_dsh_aliases_share_the_existing_canonical_thread_binding(
+    tmp_path: Path,
+) -> None:
+    path = _registry(tmp_path, ["agent-a"])
+    result = bind_thread_agent_in_registry(
+        registry_path=path,
+        goal_id="goal",
+        host_surface="dsh",
+        thread_id="session-external",
+        agent_id="agent-a",
+        execute=True,
+    )
+
+    assert result["host_surface"] == "deepseek-harness"
+    goal = json.loads(path.read_text(encoding="utf-8"))["goals"][0]
+    for spelling in (
+        "deepseek-harness",
+        "deepseek_harness",
+        "deepseek harness",
+        "dsh",
+    ):
+        resolved = resolve_thread_agent_binding(
+            goal,
+            host_surface=spelling,
+            thread_id="session-external",
+        )
+        assert resolved["status"] == "bound"
+        assert resolved["agent_id"] == "agent-a"
+
+
 def test_binding_is_idempotent_and_conflicts_fail_closed(tmp_path: Path) -> None:
     path = _registry(tmp_path, ["agent-a", "agent-b"])
     first = bind_thread_agent_in_registry(

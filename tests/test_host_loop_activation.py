@@ -25,6 +25,7 @@ from loopx.host_loop_activation import (
     agent_type_uses_host_managed_skills,
     build_host_loop_activation_packet,
     normalize_agent_type,
+    normalize_host_surface,
     scheduler_command_binding_for_agent_type,
 )
 from loopx.project_prompt import render_accountable_progress_refresh_command
@@ -177,6 +178,7 @@ def test_codex_ide_plugin_is_an_exact_host_type_with_visible_goal_activation() -
         ("opencode", "generic_cli"),
         ("traex-cli", "generic_cli"),
         ("pi", "generic_cli"),
+        ("deepseek-harness-native", "generic_cli"),
     ),
 )
 def test_first_class_hosts_bind_one_runtime_profile(
@@ -260,6 +262,9 @@ def test_pi_is_not_a_native_goal_host() -> None:
 def test_deepseek_harness_is_an_exact_host_type_with_external_loop_activation() -> None:
     assert normalize_agent_type("dsh") == "deepseek-harness"
     assert normalize_agent_type("DeepSeek Harness") == "deepseek-harness"
+    assert normalize_host_surface("dsh") == "deepseek-harness"
+    assert normalize_host_surface("deepseek_harness") == "deepseek-harness"
+    assert normalize_host_surface("deepseek harness") == "deepseek-harness"
     assert agent_type_for_host_surface("deepseek-harness") == "deepseek-harness"
     assert agent_type_for_host_surface("dsh") == "deepseek-harness"
     assert scheduler_command_binding_for_agent_type("deepseek-harness") == {
@@ -276,6 +281,63 @@ def test_deepseek_harness_is_an_exact_host_type_with_external_loop_activation() 
     assert packet["activation_method"] == "external_loop_driver", packet
     assert "--runtime-profile generic_cli" in packet["commands"]["heartbeat_prompt"], packet
     assert "scripts/dsh_turn_host_adapter.py" in packet["entry_command_hint"], packet
+
+
+def test_deepseek_harness_native_is_a_distinct_same_session_host_contract() -> None:
+    assert normalize_agent_type("dsh-native") == "deepseek-harness-native"
+    assert normalize_host_surface("dsh-native") == "deepseek-harness-native"
+    assert agent_type_for_host_surface("dsh-native") == "deepseek-harness-native"
+    assert normalize_agent_type("dsh") == "deepseek-harness"
+    assert scheduler_command_binding_for_agent_type("deepseek-harness-native") == {
+        "runtime_profile": "generic_cli"
+    }
+
+    packet = build_host_loop_activation_packet(
+        agent_type="deepseek-harness-native",
+        goal_id="fixture-goal",
+        agent_id="dsh-native-fixture",
+        registered_agents=["dsh-native-fixture"],
+    )
+
+    assert packet["host_surface"] == "deepseek_harness_native_session"
+    assert packet["activation_method"] == "current_session_host_tool"
+    assert packet["entry_command_hint"] == "/loopx <task>"
+    assert packet["host_mutation"]["owner"] == "DSH LoopX plugin"
+    assert packet["host_mutation"]["host_tool"] == "loopx_goal_activate"
+    assert packet["host_mutation"]["current_session_only"] is True
+    assert packet["setup"]["package_path"] == "packages/dsh-loopx-plugin"
+    assert "slash-commands" not in json.dumps(packet["setup"])
+    assert json.loads(packet["activation_input_command"]) == {
+        "schema_version": "loopx_deepseek_harness_native_activation_input_v0",
+        "tool": "loopx_goal_activate",
+        "arguments": {
+            "goalId": "fixture-goal",
+            "agentId": "dsh-native-fixture",
+        },
+    }
+    activation_mapping = json.dumps(packet["host_mutation"]["tool_argument_mapping"])
+    assert "taskBody" not in activation_mapping
+    assert "registry" not in activation_mapping
+    assert "argv" not in activation_mapping
+    assert "scripts/dsh_turn_host_adapter.py" not in json.dumps(packet)
+
+
+def test_deepseek_harness_native_identity_gate_does_not_expose_task_body() -> None:
+    packet = build_host_loop_activation_packet(
+        agent_type="deepseek-harness-native",
+        goal_id="fixture-goal",
+        registered_agents=["dsh-native-existing", "dsh-native-reviewer"],
+    )
+
+    choice = packet["identity_selection_gate"]["choices"][0]
+    activation_input = json.loads(choice["activation_input_command"])
+    assert activation_input["tool"] == "loopx_goal_activate"
+    assert activation_input["arguments"] == {
+        "goalId": "fixture-goal",
+        "agentId": "dsh-native-existing",
+    }
+    assert "heartbeat_prompt" not in choice
+    assert "task_body" not in json.dumps(choice)
 
 
 @pytest.mark.parametrize(

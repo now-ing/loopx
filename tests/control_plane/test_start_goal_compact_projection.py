@@ -1286,6 +1286,7 @@ def test_cli_without_host_returns_read_only_host_selection_gate(
         "pi",
         "gemini-cli",
         "cursor-agent",
+        "deepseek-harness-native",
         "deepseek-harness",
         "ark-managed-agent",
         "shell",
@@ -1470,6 +1471,36 @@ def test_codex_ide_plugin_uses_visible_goal_and_preserves_compact_parity(
     assert legacy["command_pack"]["host_loop_activation"]["host_surface"] == (
         "codex_ide_visible_goal_mode"
     )
+
+
+def test_dsh_native_alias_is_canonical_before_thread_lookup_and_binding(
+    tmp_path: Path,
+) -> None:
+    project = _write_connected_project(tmp_path)
+    payload = build_start_goal_guided_packet(
+        project=project,
+        goal_id=GOAL_ID,
+        agent_id=AGENT_ID,
+        thread_id="dsh-session-fixture",
+        cli_bin="loopx",
+        host_surface="dsh-native",
+        goal_text=GOAL_TEXT,
+        include_command_pack_detail=True,
+    )
+
+    command_pack = payload["command_pack"]
+    activation = command_pack["host_loop_activation"]
+    assert payload["host_surface"] == "deepseek-harness-native"
+    assert command_pack["host_surface"] == "deepseek-harness-native"
+    assert command_pack["agent_type"] == "deepseek-harness-native"
+    assert activation["host_surface"] == "deepseek_harness_native_session"
+    bind_command = command_pack["commands"]["goal_start_bind_thread"]
+    assert "--host-surface deepseek-harness-native" in bind_command
+    assert "dsh-native" not in bind_command
+    assert "--host-surface deepseek-harness-native" in command_pack[
+        "canonical_cli_command"
+    ]
+    assert "dsh-native" not in json.dumps(payload)
 
 
 def _runnable_todo_add_argv(command_template: str) -> list[str]:
