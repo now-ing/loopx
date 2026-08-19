@@ -88,6 +88,8 @@ PrintPayload = Callable[
     [dict[str, object], str, Callable[[dict[str, object]], str]],
     None,
 ]
+
+QUOTA_SHOULD_RUN_SCHEMA_VERSION = "loopx_quota_should_run_v0"
 RolloutEventAppender = Callable[..., dict[str, object]]
 QUOTA_EVENT_KINDS = {
     "should-run": "quota_should_run",
@@ -896,6 +898,8 @@ def handle_quota_command(
             payload,
             include_decision_detail="decisions" in detail_sections,
         )
+    if args.quota_command == "should-run":
+        payload["schema_version"] = QUOTA_SHOULD_RUN_SCHEMA_VERSION
     if args.quota_command == "should-run" and context is not None:
         _attach_host_poll_receipt(context, args, payload, registry_path=registry_path)
     print_payload(payload, args.format, _quota_renderer(args))

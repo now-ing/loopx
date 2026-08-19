@@ -50,6 +50,11 @@ PrintPayload = Callable[
     None,
 ]
 
+REGISTER_AGENT_SCHEMA_VERSION = "loopx_register_agent_v0"
+THREAD_AGENT_BINDING_COMMAND_SCHEMA_VERSION = (
+    "loopx_thread_agent_binding_command_v0"
+)
+
 REGISTRY_ADMIN_COMMANDS = {
     "configure-goal",
     "register-agent",
@@ -701,6 +706,7 @@ def handle_registry_admin_command(
                 "error": str(exc),
                 **lock_timeout_error_fields(exc),
             }
+        payload["schema_version"] = REGISTER_AGENT_SCHEMA_VERSION
         print_payload(payload, args.format, render_register_agent_markdown)
         return 0 if payload.get("ok") else 1
 
@@ -810,6 +816,7 @@ def handle_registry_admin_command(
                 "error": str(exc),
                 **lock_timeout_error_fields(exc),
             }
+        payload["schema_version"] = THREAD_AGENT_BINDING_COMMAND_SCHEMA_VERSION
         print_payload(payload, args.format, render_register_agent_markdown)
         return 0 if payload.get("ok") else 1
 

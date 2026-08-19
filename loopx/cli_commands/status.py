@@ -35,6 +35,8 @@ PrintPayload = Callable[
 ]
 FormatSelector = Callable[..., str]
 
+STATUS_SCHEMA_VERSION = "loopx_status_v0"
+
 
 def _scan_roots(args: argparse.Namespace) -> list[Path]:
     scan_roots = [Path(item).expanduser() for item in args.scan_path]
@@ -256,6 +258,7 @@ def handle_status_command(
                 ],
             },
         }
+    payload["schema_version"] = STATUS_SCHEMA_VERSION
     print_payload(payload, output_format(args), render_status_markdown)
     return 0 if payload.get("ok") else 1
 

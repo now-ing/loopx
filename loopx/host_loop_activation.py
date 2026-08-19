@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from .agent_registry import normalize_registered_agents
@@ -44,6 +45,7 @@ def scheduler_command_binding_for_agent_type(
         "gemini-cli": SchedulerRuntimeProfile.GENERIC_CLI_AGENT_LOOP,
         "cursor-agent": SchedulerRuntimeProfile.GENERIC_CLI_AGENT_LOOP,
         "deepseek-harness": SchedulerRuntimeProfile.GENERIC_CLI_AGENT_LOOP,
+        "deepseek-harness-native": SchedulerRuntimeProfile.GENERIC_CLI_AGENT_LOOP,
     }.get(canonical)
     if runtime_profile is not None:
         return {"runtime_profile": runtime_profile.value}
@@ -68,6 +70,7 @@ SUPPORTED_AGENT_TYPES = [
     "gemini-cli",
     "cursor-agent",
     "deepseek-harness",
+    "deepseek-harness-native",
     "manual",
     "other-agent",
 ]
@@ -230,6 +233,15 @@ AGENT_TYPE_CATALOG: dict[str, dict[str, Any]] = {
             "dsh",
         ],
     },
+    "deepseek-harness-native": {
+        "display_name": "DeepSeek Harness Native",
+        "host_loop": "same-session DSH LoopX plugin gated by LoopX quota",
+        "entry": "/loopx <task> with packages/dsh-loopx-plugin installed",
+        "accepted_inputs": [
+            "deepseek-harness-native",
+            "dsh-native",
+        ],
+    },
     "manual": {
         "display_name": "Manual shell / external scheduler",
         "host_loop": "external scheduler or manual quota/status loop",
@@ -307,6 +319,8 @@ HOST_SURFACE_TO_AGENT_TYPE = {
     "cursor": "cursor-agent",
     "deepseek-harness": "deepseek-harness",
     "dsh": "deepseek-harness",
+    "deepseek-harness-native": "deepseek-harness-native",
+    "dsh-native": "deepseek-harness-native",
     "shell": "manual",
     "http": "other-agent",
     "worker-bridge": "other-agent",
@@ -410,10 +424,31 @@ def normalize_agent_type(value: str | None) -> str:
 
 
 def agent_type_for_host_surface(value: str | None) -> str:
-    key = (value or "codex-app").strip().lower()
+    key = normalize_host_surface(value)
     if key in HOST_SURFACE_TO_AGENT_TYPE:
         return HOST_SURFACE_TO_AGENT_TYPE[key]
     return normalize_agent_type(key)
+
+
+def normalize_host_surface(value: str | None) -> str:
+    """Canonicalize aliases that share one persisted Host thread identity.
+
+    Both DSH integrations keep their existing execution behavior, but every
+    accepted spelling must collapse before thread lookup or write so one
+    Session cannot acquire duplicate lanes for the same Host surface.
+    """
+
+    surface = (value or "codex-app").strip().lower()
+    if surface in {
+        "deepseek-harness",
+        "deepseek_harness",
+        "deepseek harness",
+        "dsh",
+    }:
+        return "deepseek-harness"
+    if surface == "dsh-native":
+        return "deepseek-harness-native"
+    return surface
 
 
 def _heartbeat_commands(
@@ -438,6 +473,7 @@ def _heartbeat_commands(
         "gemini-cli": "Gemini CLI agent loop gated by LoopX",
         "cursor-agent": "Cursor Agent CLI loop gated by LoopX",
         "deepseek-harness": "DeepSeek Harness automation loop gated by LoopX",
+        "deepseek-harness-native": "DeepSeek Harness same-session LoopX plugin gated by LoopX",
         "manual": "External scheduler or manual shell LoopX poll",
         "other-agent": "Custom agent host loop gated by LoopX",
     }
@@ -1081,6 +1117,71 @@ def _deepseek_harness_activation(commands: dict[str, str]) -> dict[str, Any]:
     }
 
 
+def _deepseek_harness_native_activation(
+    *,
+    goal_id: str,
+    agent_id: str | None,
+) -> dict[str, Any]:
+    activation_input = {
+        "schema_version": "loopx_deepseek_harness_native_activation_input_v0",
+        "tool": "loopx_goal_activate",
+        "arguments": {
+            "goalId": goal_id,
+            **({"agentId": agent_id} if agent_id else {}),
+        },
+    }
+    return {
+        "host_surface": "deepseek_harness_native_session",
+        "entry_command_hint": "/loopx <task>",
+        "activation_method": "current_session_host_tool",
+        "activation_input": activation_input,
+        "activation_input_command": json.dumps(
+            activation_input,
+            sort_keys=True,
+            separators=(",", ":"),
+        ),
+        "setup": {
+            "owner": "DSH LoopX plugin",
+            "package_path": "packages/dsh-loopx-plugin",
+            "install_surface": "dsh_host_bundle",
+        },
+        "host_mutation": {
+            "owner": "DSH LoopX plugin",
+            "host_loop_primitive": "agent.followup",
+            "host_tool": "loopx_goal_activate",
+            "current_session_only": True,
+            "cli_can_mutate_directly": False,
+            "tool_argument_mapping": {
+                "goalId": "activation_input.arguments.goalId",
+                "agentId": "activation_input.arguments.agentId when present",
+            },
+            "forbidden_tool_arguments": [
+                "sessionId",
+                "registryPath",
+                "taskBody",
+                "argv",
+            ],
+            "missing_host_tool_gate": (
+                "Install and enable the independent packages/dsh-loopx-plugin "
+                "Host bundle before claiming same-session continuation."
+            ),
+        },
+        "activation_steps": [
+            "Install and enable packages/dsh-loopx-plugin in the current DSH Profile.",
+            "After planning, Todo writeback, and refresh, invoke loopx_goal_activate "
+            "with the returned JSON arguments in this same DSH Session.",
+            "Let the plugin read back LoopX identity and task state; do not pass a "
+            "registry locator, task body, Session id, or arbitrary command.",
+            "Allow the plugin driver to follow up only after quota should-run permits it.",
+        ],
+        "success_criteria": [
+            "The current DSH Session is bound to the exact LoopX goal and agent lane.",
+            "The DSH LoopX plugin reports an armed binding after authoritative LoopX readback.",
+            "Every continuation is gated by the generic_cli quota contract and foreign input pauses it.",
+        ],
+    }
+
+
 def _manual_activation(commands: dict[str, str]) -> dict[str, Any]:
     return {
         "host_surface": "external_scheduler_or_manual_shell",
@@ -1171,6 +1272,11 @@ def build_host_loop_activation_packet(
         surface = _cursor_agent_activation(commands, cli_bin)
     elif canonical == "deepseek-harness":
         surface = _deepseek_harness_activation(commands)
+    elif canonical == "deepseek-harness-native":
+        surface = _deepseek_harness_native_activation(
+            goal_id=goal_id,
+            agent_id=str(selected_agent_id) if selected_agent_id else None,
+        )
     else:
         surface = _manual_activation(commands)
         if canonical == "other-agent":
@@ -1187,15 +1293,27 @@ def build_host_loop_activation_packet(
                 agent_id=candidate,
                 available_capabilities=normalized_available_capabilities,
             )
+            native_candidate_activation = (
+                _deepseek_harness_native_activation(
+                    goal_id=goal_id,
+                    agent_id=candidate,
+                )
+                if canonical == "deepseek-harness-native"
+                else None
+            )
             choice: dict[str, Any] = {
                 "agent_id": candidate,
                 "activation_input_command": (
-                    candidate_commands["visible_goal_prompt_json"]
-                    if canonical == "traex-cli"
-                    else candidate_commands["heartbeat_prompt_json"]
+                    native_candidate_activation["activation_input_command"]
+                    if native_candidate_activation
+                    else (
+                        candidate_commands["visible_goal_prompt_json"]
+                        if canonical == "traex-cli"
+                        else candidate_commands["heartbeat_prompt_json"]
+                    )
                 ),
             }
-            if canonical != "traex-cli":
+            if canonical not in {"traex-cli", "deepseek-harness-native"}:
                 choice.update(
                     {
                         "heartbeat_prompt_json": candidate_commands[

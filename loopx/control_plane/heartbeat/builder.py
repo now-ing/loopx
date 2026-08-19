@@ -67,6 +67,8 @@ from ...project_prompt import (
     render_refresh_state_command,
 )
 
+HEARTBEAT_PROMPT_SCHEMA_VERSION = "loopx_heartbeat_prompt_v0"
+
 FINE_GRAINED_TURN_RULE = (
     "Fine-grained planning contract: each Todo must be one small verifiable checkpoint; "
     "if broader, split before delivery. The turn budget is one coherent decision slice "
@@ -345,6 +347,7 @@ def build_heartbeat_prompt(
             "shorten agent scopes or project-specific prompt rules"
         )
     payload = {
+        "schema_version": HEARTBEAT_PROMPT_SCHEMA_VERSION,
         "ok": True,
         "goal_id": goal_id,
         "active_state": active_state_text,
@@ -419,7 +422,9 @@ def build_heartbeat_prompt(
             "agent_role",
             "agent_scope_source",
             "agent_scopes",
+            "pr_review_pre_quota_command",
             "registered_agents",
+            "scheduler_execution_context",
         ):
             if not payload.get(key):
                 payload.pop(key, None)
@@ -469,6 +474,7 @@ def build_heartbeat_prompt_error_payload(
     thin_prompt_command = f"{cli_bin} heartbeat-prompt --thin --goal-id {goal_id}{active_state_arg}{agent_args}{capability_args}"
     normalized_registered_agents = normalize_registered_agents(registered_agents)
     payload = {
+        "schema_version": HEARTBEAT_PROMPT_SCHEMA_VERSION,
         "ok": False,
         "goal_id": goal_id,
         "error": error,

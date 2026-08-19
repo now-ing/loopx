@@ -1,0 +1,14 @@
+# Host-plane only. The web profile supplies storage, storage-json, and the
+# storage-domain backend before this service can activate.
+- insert:
+    - id: loopx-service
+      name: dsh-loopx-plugin/service
+
+    - id: loopx-command
+      name: dsh-loopx-plugin/command
+
+    - id: loopx-tools
+      name: dsh-loopx-plugin/tools
+
+    - id: loopx-driver
+      name: dsh-loopx-plugin/driver

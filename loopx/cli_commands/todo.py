@@ -59,6 +59,8 @@ from .todo_argument_validation import (
 )
 from .todo_event import RolloutEventAppender, append_todo_rollout_event
 
+TODO_COMMAND_SCHEMA_VERSION = "loopx_todo_command_v0"
+
 PrintPayload = Callable[
     [dict[str, object], str, Callable[[dict[str, object]], str]],
     None,
@@ -932,6 +934,7 @@ def handle_todo_command(
             payload["ok"] = False
             payload["receipt_repair_required"] = True
             payload["error"] = settlement_result.failure.reason
+    payload["schema_version"] = TODO_COMMAND_SCHEMA_VERSION
     print_payload(
         payload,
         format_name or str(getattr(args, "format", None) or "markdown"),

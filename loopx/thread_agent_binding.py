@@ -8,6 +8,7 @@ from typing import Any
 from .control_plane.todos.contract import normalize_todo_claimed_by
 from .file_lock import exclusive_file_lock
 from .history import load_registry
+from .host_loop_activation import normalize_host_surface
 from .registry import atomic_write_json, find_registry_goal
 
 THREAD_ID_MAX_LENGTH = 128
@@ -34,9 +35,10 @@ def normalize_thread_id(value: Any) -> str | None:
 
 
 def _normalized_host_surface(value: Any) -> str:
-    surface = str(value or "").strip()
-    if not surface:
+    raw_surface = str(value or "").strip()
+    if not raw_surface:
         raise ValueError("host_surface is required for a thread binding")
+    surface = normalize_host_surface(raw_surface)
     if len(surface) > 64 or any(char.isspace() for char in surface):
         raise ValueError("host_surface must be a compact public-safe token")
     return surface
