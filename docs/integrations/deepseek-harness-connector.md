@@ -3,6 +3,14 @@
 Status: public-safe v0 connector for using DeepSeek Harness (`dsh`) as a
 bounded agent execution host behind LoopX.
 
+This document covers the external `deepseek-harness` agent type (`dsh` input
+alias): LoopX launches one isolated, validated Turn through the Python SDK
+adapter. For same-process continuation in the current visible DSH Session,
+use the separate
+[DeepSeek Harness native plugin](deepseek-harness-native-plugin.md) with the
+canonical `deepseek-harness-native` agent type (`dsh-native` input alias).
+Neither surface is a migration alias for the other.
+
 DeepSeek Harness is an open-source agent harness by DeepSeek AI. LoopX does not
 replace dsh's model loop, tools, sandbox, or session log. Instead, the connector
 lets LoopX govern one dsh-backed work segment at a time through the existing
@@ -125,6 +133,7 @@ final message, and complete LoopX validation/writeback/quota spend.
 
 ## Related Contracts
 
+- [DeepSeek Harness native plugin](deepseek-harness-native-plugin.md)
 - [Runtime connector catalog](runtime-connector-catalog.md)
 - [LoopX Turn v0](../reference/protocols/loopx-turn-v0.md)
 - [Host integration surface v0](../reference/protocols/host-integration-surface-v0.md)
