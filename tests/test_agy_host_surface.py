@@ -20,8 +20,15 @@ from host_surface_cli_probes import (
 )
 
 from loopx.agent_onboarding import _start_instruction, _surface_install_command
+from loopx.control_plane.host_activation_contract import (
+    QuotaGateEnforcement,
+    derive_host_agent_scope,
+    derive_host_loop_description,
+    validate_host_activation_packet,
+)
 from loopx.host_loop_activation import (
     _heartbeat_commands,
+    _skill_facade_cli_activation,
     build_agent_type_catalog,
     build_host_loop_activation_packet,
     normalize_agent_type,
@@ -145,9 +152,13 @@ def test_agent_type_catalog_and_scheduler_binding() -> None:
         if item["agent_type"] == HOST_SURFACE
     )
     assert entry["display_name"] == "Antigravity CLI"
-    assert entry["host_loop"]
-    assert "gated" not in entry["host_loop"].lower()
-    assert "advisory" in entry["host_loop"].lower()
+    expected_host_loop = derive_host_loop_description(
+        "Antigravity CLI",
+        QuotaGateEnforcement.ADVISORY_ONLY,
+        native_details="Antigravity CLI native /goal loop with schedule self-wakes",
+    )
+    assert entry["host_loop"] == expected_host_loop
+    assert entry.get("quota_gate_enforcement") == QuotaGateEnforcement.ADVISORY_ONLY.value
     # The bare product name is what a user types.
     assert HOST_SURFACE in entry["accepted_inputs"]
     assert normalize_agent_type("agy") == HOST_SURFACE
@@ -186,9 +197,10 @@ def test_activation_binds_native_goal_and_wake_with_advisory_quota_entry() -> No
         packet["host_mutation"]["loop_driver"]
         == "agy_native_goal_loop_with_schedule_wakes"
     )
-    # The quota claim must be honest: advisory guidance, no host hook.
+    # The quota claim must be honest: typed advisory guidance, no host hook.
     assert (
-        packet["host_mutation"]["quota_gate_enforcement"] == "advisory_only"
+        packet["host_mutation"]["quota_gate_enforcement"]
+        == QuotaGateEnforcement.ADVISORY_ONLY.value
     )
     assert packet["host_mutation"]["native_goal_command"] == "/goal"
     assert packet["host_mutation"]["goal_complete_token"] == AGY_GOAL_COMPLETE_TOKEN
@@ -216,19 +228,75 @@ def test_activation_binds_native_goal_and_wake_with_advisory_quota_entry() -> No
         packet["entry_command_hint"]
         == "the LoopX skill installed in ~/.gemini/antigravity-cli/skills"
     )
-    # Ensure rendered heartbeat commands and scope contain no machine-gate semantics
-    assert "gated" not in packet["activation_input_command"].lower()
-    assert "advisory" in packet["activation_input_command"].lower()
+    # Ensure rendered heartbeat commands and scope match the typed derived advisory projection
+    expected_scope = derive_host_agent_scope("Antigravity CLI", QuotaGateEnforcement.ADVISORY_ONLY)
+    assert expected_scope in packet["activation_input_command"]
     hb = _heartbeat_commands(
         goal_id="surface-goal",
         agent_type=HOST_SURFACE,
         cli_bin="loopx",
         agent_id="probe-agent",
     )
-    assert "gated" not in hb["heartbeat_prompt"].lower()
-    assert "gated" not in hb["heartbeat_prompt_json"].lower()
-    assert "advisory" in hb["heartbeat_prompt"].lower()
-    assert "advisory" in hb["heartbeat_prompt_json"].lower()
+    assert expected_scope in hb["heartbeat_prompt"]
+    assert expected_scope in hb["heartbeat_prompt_json"]
+
+
+def test_typed_quota_gate_enforcement_boundary_rejects_unknown_modes() -> None:
+    """The control plane boundary rejects unknown or renamed enforcement modes,
+    preventing drift between guidance and obligation contracts."""
+    assert QuotaGateEnforcement.parse("enforced") == QuotaGateEnforcement.ENFORCED
+    assert QuotaGateEnforcement.parse("advisory_only") == QuotaGateEnforcement.ADVISORY_ONLY
+    assert QuotaGateEnforcement.parse(QuotaGateEnforcement.ADVISORY_ONLY) == QuotaGateEnforcement.ADVISORY_ONLY
+    assert QuotaGateEnforcement.parse(None) == QuotaGateEnforcement.ENFORCED
+
+    for invalid in ("mandatory", "gated", "advisory", "host_enforced", "unknown", ""):
+        with pytest.raises(ValueError, match="unsupported quota_gate_enforcement"):
+            QuotaGateEnforcement.parse(invalid)
+
+    # _skill_facade_cli_activation rejects unknown enforcement modes
+    commands = {"heartbeat_prompt_json": "loopx heartbeat-prompt --json"}
+    with pytest.raises(ValueError, match="unsupported quota_gate_enforcement"):
+        _skill_facade_cli_activation(
+            commands,
+            "loopx",
+            host_label="TestHost",
+            host_surface="test_surface",
+            install_surface="test",
+            skills_root="~/.test/skills",
+            quota_gate_enforcement="mandatory",
+        )
+
+    with pytest.raises(ValueError, match="unsupported quota_gate_enforcement"):
+        _skill_facade_cli_activation(
+            commands,
+            "loopx",
+            host_label="TestHost",
+            host_surface="test_surface",
+            install_surface="test",
+            skills_root="~/.test/skills",
+            extra_host_mutation={"quota_gate_enforcement": "invalid_mode"},
+        )
+
+    # validate_host_activation_packet rejects invalid modes at descriptor boundary
+    with pytest.raises(ValueError, match="unsupported quota_gate_enforcement"):
+        validate_host_activation_packet(
+            {
+                "host_mutation": {"quota_gate_enforcement": "bogus_enforcement"},
+            }
+        )
+
+
+def test_advisory_vs_enforced_projections_derive_from_typed_state() -> None:
+    """Projections derive directly from QuotaGateEnforcement rather than hardcoded substrings."""
+    advisory_scope = derive_host_agent_scope("Antigravity CLI", QuotaGateEnforcement.ADVISORY_ONLY)
+    enforced_scope = derive_host_agent_scope("Antigravity CLI", QuotaGateEnforcement.ENFORCED)
+    assert advisory_scope == "Antigravity CLI agent loop with advisory LoopX quota pacing"
+    assert enforced_scope == "Antigravity CLI agent loop gated by LoopX"
+
+    advisory_loop = derive_host_loop_description("Antigravity CLI", QuotaGateEnforcement.ADVISORY_ONLY)
+    enforced_loop = derive_host_loop_description("Antigravity CLI", QuotaGateEnforcement.ENFORCED)
+    assert advisory_loop == "Antigravity CLI agent loop with advisory LoopX quota pacing"
+    assert enforced_loop == "agent-driven Antigravity CLI loop gated by LoopX quota should-run"
 
 
 def test_native_goal_and_wake_facts_match_the_live_probes() -> None:

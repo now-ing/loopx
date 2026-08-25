@@ -3,6 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from loopx.control_plane.host_activation_contract import (
+    HostActivationExtras,
+    QuotaGateEnforcement,
+)
+
 AGY_INSTALL_SURFACE = "agy"
 DEFAULT_AGY_HOME = ".gemini/antigravity-cli"
 SKILLS_SUBDIR = "skills"
@@ -61,12 +66,13 @@ def agy_activation_extras() -> dict[str, Any]:
     scheduler (``schedule`` tool plus background-task/subagent wakes). The
     loop and wakes live and die with the session; no cross-session daemon.
     """
-    return {
-        "activation_method": "bind_native_goal_with_advisory_quota_entry",
-        "extra_host_mutation": {
+    extras = HostActivationExtras(
+        activation_method="bind_native_goal_with_advisory_quota_entry",
+        quota_gate_enforcement=QuotaGateEnforcement.ADVISORY_ONLY,
+        extra_host_mutation={
             "host_loop_primitive": "agy-/goal-and-schedule-tool",
             "loop_driver": "agy_native_goal_loop_with_schedule_wakes",
-            "quota_gate_enforcement": "advisory_only",
+            "quota_gate_enforcement": QuotaGateEnforcement.ADVISORY_ONLY.value,
             "native_goal_command": AGY_GOAL_COMMAND,
             "goal_complete_token": AGY_GOAL_COMPLETE_TOKEN,
             "goal_cancelled_token": AGY_GOAL_CANCELLED_TOKEN,
@@ -81,7 +87,7 @@ def agy_activation_extras() -> dict[str, Any]:
                 "unattended heartbeat support."
             ),
         },
-        "extra_activation_steps": [
+        extra_activation_steps=[
             "Bind the objective with the native goal command: "
             "`/goal <task_body>` — agy's forced continuation audits the work "
             "until completion is emitted; `<!-- GOAL_COMPLETE -->` ends the "
@@ -94,12 +100,13 @@ def agy_activation_extras() -> dict[str, Any]:
             "(recurring wakes bounded by MaxIterations); the wake re-enters "
             "through `quota should-run` on the same advisory basis.",
         ],
-        "host_scheduler_note": (
+        host_scheduler_note=(
             "the native `/goal` loop and `schedule` tool drive this session; "
             "quota should-run entry is advisory guidance in the facade, not a "
             "host-enforced gate."
         ),
-    }
+    )
+    return extras.to_dict()
 
 
 def agy_home(value: str | None = None) -> Path:

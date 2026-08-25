@@ -4,6 +4,12 @@ from typing import Any
 
 from .agent_registry import normalize_registered_agents
 from .agy_goal_mode import AGY_ACCEPTED_INPUTS, agy_activation_extras
+from .control_plane.host_activation_contract import (
+    QuotaGateEnforcement,
+    derive_host_agent_scope,
+    derive_host_loop_description,
+    validate_host_activation_packet,
+)
 from .control_plane.scheduler.execution_context import SchedulerRuntimeProfile
 from .control_plane.todos.contract import (
     normalize_required_capabilities,
@@ -89,12 +95,8 @@ AGENT_TYPE_CATALOG: dict[str, dict[str, Any]] = {
         "host_loop": "one-shot Goal activation owned by the Goal runtime",
         "entry": "submit the generated task_body as one Goal",
         "accepted_inputs": [
-            "ark-managed-agent",
-            "ark_managed_agent",
-            "ark managed agent",
-            "managed-agent",
-            "managed_agent",
-            "managed agent",
+            "ark-managed-agent", "ark_managed_agent", "ark managed agent",
+            "managed-agent", "managed_agent", "managed agent",
         ],
     },
     "codex-app": {
@@ -108,13 +110,8 @@ AGENT_TYPE_CATALOG: dict[str, dict[str, Any]] = {
         "host_loop": "visible Codex App /goal when host automation is unavailable over SSH",
         "entry": "$loopx <task> or the explicit LoopX skill from /skills",
         "accepted_inputs": [
-            "codex-app-ssh",
-            "codex_app_ssh",
-            "codex app ssh",
-            "codex-ssh",
-            "codex ssh",
-            "codex-app-remote",
-            "codex app remote",
+            "codex-app-ssh", "codex_app_ssh", "codex app ssh", "codex-ssh",
+            "codex ssh", "codex-app-remote", "codex app remote",
         ],
     },
     "codex-cli": {
@@ -122,12 +119,8 @@ AGENT_TYPE_CATALOG: dict[str, dict[str, Any]] = {
         "host_loop": "visible Codex CLI /goal",
         "entry": "$loopx <task> or the explicit LoopX skill from /skills",
         "accepted_inputs": [
-            "codex-cli",
-            "codex_cli",
-            "codex cli",
-            "codex-cli-tui",
-            "codex_cli_tui",
-            "codex tui",
+            "codex-cli", "codex_cli", "codex cli", "codex-cli-tui",
+            "codex_cli_tui", "codex tui",
         ],
     },
     "codex-ide-plugin": {
@@ -135,18 +128,10 @@ AGENT_TYPE_CATALOG: dict[str, dict[str, Any]] = {
         "host_loop": "visible Codex IDE plugin /goal",
         "entry": "$loopx <task> or the explicit LoopX skill from /skills",
         "accepted_inputs": [
-            "codex-ide-plugin",
-            "codex_ide_plugin",
-            "codex ide plugin",
-            "codex-ide",
-            "codex_ide",
-            "codex ide",
-            "codex-ide-extension",
-            "codex ide extension",
-            "codex-vscode",
-            "codex vscode",
-            "vscode-codex",
-            "vscode codex",
+            "codex-ide-plugin", "codex_ide_plugin", "codex ide plugin",
+            "codex-ide", "codex_ide", "codex ide", "codex-ide-extension",
+            "codex ide extension", "codex-vscode", "codex vscode",
+            "vscode-codex", "vscode codex",
         ],
     },
     "claude-code": {
@@ -160,11 +145,7 @@ AGENT_TYPE_CATALOG: dict[str, dict[str, Any]] = {
         "host_loop": "recoverable native Goal Pro controlled by LoopX",
         "entry": "loopx-kunluncode add <task> then loopx-kunluncode run",
         "accepted_inputs": [
-            "kunluncode",
-            "kunlun-code",
-            "kunlun_code",
-            "kunlun code",
-            "kunlun",
+            "kunluncode", "kunlun-code", "kunlun_code", "kunlun code", "kunlun",
         ],
     },
     "opencode": {
@@ -178,11 +159,7 @@ AGENT_TYPE_CATALOG: dict[str, dict[str, Any]] = {
         "host_loop": "visible OpenCode 2 session driven by the LoopX goal worker",
         "entry": "/loopx <task> with OpenCode 2 and the LoopX goal worker",
         "accepted_inputs": [
-            "opencode2",
-            "opencode-2",
-            "opencode_2",
-            "open-code-2",
-            "open code 2",
+            "opencode2", "opencode-2", "opencode_2", "open-code-2", "open code 2",
         ],
     },
     "traex-cli": {
@@ -190,15 +167,8 @@ AGENT_TYPE_CATALOG: dict[str, dict[str, Any]] = {
         "host_loop": "visible TraeX /goal gated by LoopX",
         "entry": "$loopx <task> or the explicit LoopX skill from /skills",
         "accepted_inputs": [
-            "traex-cli",
-            "traex_cli",
-            "traex cli",
-            "traex",
-            "traex-cli-tui",
-            "traex tui",
-            "trae-cli",
-            "trae_cli",
-            "trae cli",
+            "traex-cli", "traex_cli", "traex cli", "traex", "traex-cli-tui",
+            "traex tui", "trae-cli", "trae_cli", "trae cli",
         ],
     },
     "pi": {
@@ -206,12 +176,7 @@ AGENT_TYPE_CATALOG: dict[str, dict[str, Any]] = {
         "host_loop": "visible Pi goal extension gated by LoopX",
         "entry": "/loopx <task> with the LoopX Pi extension installed",
         "accepted_inputs": [
-            "pi",
-            "pi-agent",
-            "pi_agent",
-            "pi agent",
-            "earendil-pi",
-            "earendil pi",
+            "pi", "pi-agent", "pi_agent", "pi agent", "earendil-pi", "earendil pi",
         ],
     },
     "gemini-cli": {
@@ -219,14 +184,8 @@ AGENT_TYPE_CATALOG: dict[str, dict[str, Any]] = {
         "host_loop": "agent-driven Gemini CLI loop gated by LoopX quota should-run",
         "entry": "the LoopX skill installed in GEMINI_HOME/skills",
         "accepted_inputs": [
-            "gemini-cli",
-            "gemini_cli",
-            "gemini cli",
-            "gemini",
-            "gemini-code",
-            "gemini code",
-            "google-gemini",
-            "google gemini",
+            "gemini-cli", "gemini_cli", "gemini cli", "gemini", "gemini-code",
+            "gemini code", "google-gemini", "google gemini",
         ],
     },
     "cursor-agent": {
@@ -234,30 +193,26 @@ AGENT_TYPE_CATALOG: dict[str, dict[str, Any]] = {
         "host_loop": "agent-driven cursor-agent loop gated by LoopX quota should-run",
         "entry": "the LoopX skill installed in CURSOR_HOME/skills, with the LoopX MCP server registered",
         "accepted_inputs": [
-            "cursor-agent",
-            "cursor_agent",
-            "cursor agent",
-            "cursor",
-            "cursor-cli",
-            "cursor cli",
+            "cursor-agent", "cursor_agent", "cursor agent", "cursor",
+            "cursor-cli", "cursor cli",
         ],
     },
     "zcode": {
         "display_name": "ZCode",
         "host_loop": "agent-driven ZCode loop gated by LoopX quota should-run",
         "entry": "$loopx <task> or the LoopX skill from ZCODE_HOME/skills",
-        "accepted_inputs": [
-            "zcode",
-            "z_code",
-            "z code",
-            "z-code",
-        ],
+        "accepted_inputs": ["zcode", "z_code", "z code", "z-code"],
     },
     "agy": {
         "display_name": "Antigravity CLI",
-        "host_loop": "Antigravity CLI native /goal loop with schedule self-wakes (LoopX quota pacing is advisory)",
+        "host_loop": derive_host_loop_description(
+            "Antigravity CLI",
+            QuotaGateEnforcement.ADVISORY_ONLY,
+            native_details="Antigravity CLI native /goal loop with schedule self-wakes",
+        ),
         "entry": "the LoopX skill installed in ~/.gemini/antigravity-cli/skills",
         "accepted_inputs": list(AGY_ACCEPTED_INPUTS),
+        "quota_gate_enforcement": QuotaGateEnforcement.ADVISORY_ONLY.value,
     },
     "deepseek-harness": {
         "display_name": "DeepSeek Harness",
@@ -384,6 +339,9 @@ def build_agent_type_catalog() -> dict[str, Any]:
                 "host_loop": metadata["host_loop"],
                 "entry": metadata["entry"],
                 "accepted_inputs": metadata["accepted_inputs"],
+                "quota_gate_enforcement": metadata.get(
+                    "quota_gate_enforcement", QuotaGateEnforcement.ENFORCED.value
+                ),
             }
             for agent_type, metadata in AGENT_TYPE_CATALOG.items()
         ],
@@ -495,10 +453,10 @@ def _heartbeat_commands(
         "opencode2": "OpenCode 2 visible goal loop driven by the LoopX worker",
         "traex-cli": "TraeX CLI /goal visible TUI loop gated by LoopX",
         "pi": "Pi visible goal loop gated by LoopX",
-        "gemini-cli": "Gemini CLI agent loop gated by LoopX",
+        "gemini-cli": derive_host_agent_scope("Gemini CLI", QuotaGateEnforcement.ENFORCED),
         "cursor-agent": "Cursor Agent CLI loop gated by LoopX",
-        "zcode": "ZCode agent loop gated by LoopX",
-        "agy": "Antigravity CLI agent loop with advisory LoopX quota pacing",
+        "zcode": derive_host_agent_scope("ZCode", QuotaGateEnforcement.ENFORCED),
+        "agy": derive_host_agent_scope("Antigravity CLI", QuotaGateEnforcement.ADVISORY_ONLY),
         "deepseek-harness": "DeepSeek Harness automation loop gated by LoopX",
         "deepseek-harness-native": "DeepSeek Harness same-session plugin loop gated by LoopX",
         "manual": "External scheduler or manual shell LoopX poll",
@@ -1068,6 +1026,7 @@ def _skill_facade_cli_activation(
     host_surface: str,
     install_surface: str,
     skills_root: str,
+    quota_gate_enforcement: QuotaGateEnforcement | str = QuotaGateEnforcement.ENFORCED,
     extra_host_mutation: dict[str, Any] | None = None,
     extra_activation_steps: list[str] | None = None,
     host_scheduler_note: str | None = None,
@@ -1085,6 +1044,10 @@ def _skill_facade_cli_activation(
     remains explicit rather than claiming autonomous heartbeat support the host
     cannot deliver.
     """
+    raw_mutation = extra_host_mutation or {}
+    enforcement = QuotaGateEnforcement.parse(
+        raw_mutation.get("quota_gate_enforcement", quota_gate_enforcement)
+    )
     return {
         "host_surface": host_surface,
         "entry_command_hint": f"the LoopX skill installed in {skills_root}",
@@ -1104,7 +1067,8 @@ def _skill_facade_cli_activation(
                 "show the exact heartbeat-prompt command for the user to run and do "
                 "not claim autonomous heartbeat support."
             ),
-            **(extra_host_mutation or {}),
+            **raw_mutation,
+            "quota_gate_enforcement": enforcement.value,
         },
         "activation_steps": [
             f"Install or refresh the LoopX {host_label} surface when needed.",
@@ -1475,24 +1439,26 @@ def build_host_loop_activation_packet(
             gate_criterion,
             *surface["success_criteria"],
         ]
-    return {
-        "schema_version": SCHEMA_VERSION,
-        "agent_type": canonical,
-        "agent_model": "peer_v1",
-        "goal_id": goal_id,
-        "agent_id": selected_agent_id,
-        "requested_agent_id": normalize_todo_claimed_by(agent_id),
-        "available_capabilities": normalized_available_capabilities,
-        "activation_state": identity["state"],
-        "activation_allowed": activation_allowed,
-        "identity_contract": identity,
-        "identity_selection_gate": identity_selection_gate,
-        "activation_required_after_todo_write": True,
-        "status_probe_policy": {
-            "check_once_during_onboarding": True,
-            "cheap_recheck_on_loopx": "only when activation is missing, unknown, stale, or the agent is newly installed",
-            "do_not_recompute_every_loopx_turn": True,
-        },
-        "commands": commands,
-        **surface,
-    }
+    return validate_host_activation_packet(
+        {
+            "schema_version": SCHEMA_VERSION,
+            "agent_type": canonical,
+            "agent_model": "peer_v1",
+            "goal_id": goal_id,
+            "agent_id": selected_agent_id,
+            "requested_agent_id": normalize_todo_claimed_by(agent_id),
+            "available_capabilities": normalized_available_capabilities,
+            "activation_state": identity["state"],
+            "activation_allowed": activation_allowed,
+            "identity_contract": identity,
+            "identity_selection_gate": identity_selection_gate,
+            "activation_required_after_todo_write": True,
+            "status_probe_policy": {
+                "check_once_during_onboarding": True,
+                "cheap_recheck_on_loopx": "only when activation is missing, unknown, stale, or the agent is newly installed",
+                "do_not_recompute_every_loopx_turn": True,
+            },
+            "commands": commands,
+            **surface,
+        }
+    )
